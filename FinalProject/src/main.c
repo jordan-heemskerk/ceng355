@@ -31,45 +31,70 @@
 
 void initADC();
 void initDAC();
-void configurePA0();
+void configurePA();
 unsigned int pollADC();
+void writeDAC(unsigned int);
 
 int
-main(int argc, char* argv[]) {
+ main(int argc, char* argv[]) {
   // At this stage the system clock should have already been configured
   // at high speed.
 
-	configurePA0();
+	configurePA();
 	initADC();
-
+	initDAC();
 
   // Infinite loop
 	while (1) {
-	  trace_printf("ADC Value: %d\n", pollADC());
+
+		unsigned int adc = pollADC();
+		trace_printf("ADC Value: %d\n", adc);
+		writeDAC(adc);
+
+
 	   // Add your code here.
 	}
 }
 
-void configurePA0() {
+
+
+void configurePA() {
 	/* Enable clock for GPIOA peripheral */
 	// Relevant register: RCC->AHBENR
 	RCC->AHBENR |= RCC_AHBENR_GPIOAEN;
 
+	/****** PA0 *********/
+
 	/* Configure PA0 as analog */
 	// Relevant register: GPIOA->MODER
-	GPIOA->MODER &= ~GPIO_MODER_MODER0;
+	GPIOA->MODER |= GPIO_MODER_MODER0;
 
 	/* Ensure no pull-up/pull-down for PA0 */
 	// Relevant register: GPIOA->PUPDR
 	GPIOA->PUPDR &= ~(GPIO_PUPDR_PUPDR0);
+
+
+	/****** PA4 *********/
+
+	/* Configure PA4 as analog */
+	GPIOA->MODER |= GPIO_MODER_MODER4;
+
+	/* Ensure no pull-up/pull-down for PA4 */
+	GPIOA->PUPDR &= ~(GPIO_PUPDR_PUPDR4);
 }
 
 void initDAC() {
-RCC->APB1ENR |= RCC_APB1ENR_DACEN;
+	//enable DAC on APB
+	RCC->APB1ENR |= RCC_APB1ENR_DACEN;
+
+	//enable DAC
+	DAC->CR |= DAC_CR_EN1;
 
 
+}
 
-
+void writeDAC(unsigned int dac_value) {
+	DAC->DHR12R1 = dac_value;
 }
 
 void initADC() {
