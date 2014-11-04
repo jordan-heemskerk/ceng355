@@ -29,6 +29,10 @@
 #pragma GCC diagnostic ignored "-Wmissing-declarations"
 #pragma GCC diagnostic ignored "-Wreturn-type"
 
+#define DAC_MAX 3000.0
+#define DAC_MIN 1000.0
+#define ADC_MAX 4095.0
+
 void initADC();
 void initDAC();
 void configurePA();
@@ -49,7 +53,9 @@ int
 
 		unsigned int adc = pollADC();
 		trace_printf("ADC Value: %d\n", adc);
-		writeDAC(adc);
+		float out = (((float)adc) * ((DAC_MAX-DAC_MIN)/ADC_MAX)) + DAC_MIN;
+		trace_printf("DAC Value: %d\n\n", (int)out);
+		writeDAC(out);
 
 
 	   // Add your code here.
