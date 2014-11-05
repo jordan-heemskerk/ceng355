@@ -8,6 +8,8 @@
 #include <stdio.h>
 #include "diag/Trace.h"
 #include "cmsis/cmsis_device.h"
+#include "stm32f0xx_spi.h"
+
 
 // ----------------------------------------------------------------------------
 //
@@ -45,17 +47,35 @@ void initEXTI();
 void TIM2_IRQHandler();
 void EXTI0_1_IRQHandler();
 void configurePA();
+void configurePB();
+void configurePD();
+void configureSPI1();
 unsigned int pollADC();
 void writeDAC(unsigned int);
 
+void writeChar(int);
+void changeAddr(int);
+void sendCommand(uint8_t);
+void sendData(uint8_t);
+void writeData(uint8_t);
+void writeCmd(int );
+
+
+
 //for determining frequency with EXTI and TIM2
 int second_edge;
+
+
 
 int main(int argc, char* argv[]) {
   // At this stage the system clock should have already been configured
   // at high speed.
 
 	configurePA();
+	configurePB();
+	configurePD();
+	configureSPI1();
+
 	initADC();
 	initDAC();
 	initTIM2();
@@ -67,9 +87,9 @@ int main(int argc, char* argv[]) {
 	while (1) {
 
 		unsigned int adc = pollADC();
-	//	trace_printf("ADC Value: %d\n", adc);
+		trace_printf("ADC Value: %d\n", adc);
 		float out = (((float)adc) * ((DAC_MAX-DAC_MIN)/ADC_MAX)) + DAC_MIN;
-	//	trace_printf("DAC Value: %d\n\n", (int)out);
+		trace_printf("DAC Value: %d\n\n", (int)out);
 		writeDAC(out);
 
 
@@ -77,7 +97,132 @@ int main(int argc, char* argv[]) {
 	}
 }
 
+void configureSPI1() {
+	/* Enable SPI1 on APB Bus */
+	RCC->APB2ENR |= RCC_APB2ENR_SPI1EN;
 
+	/* CMSIS function calls here to init */
+
+	SPI_InitTypeDef SPI_InitStructInfo;
+	SPI_InitTypeDef* SPI_InitStruct = &SPI_InitStructInfo;
+
+	//something here .. ?
+
+	SPI_InitStruct->SPI_Direction = SPI_Direction_1Line_Tx;
+	SPI_InitStruct->SPI_Mode = SPI_Mode_Master;
+	SPI_InitStruct->SPI_DataSize = SPI_DataSize_8b;
+	SPI_InitStruct->SPI_CPOL = SPI_CPOL_Low;
+	SPI_InitStruct->SPI_CPHA = SPI_CPHA_1Edge;
+	SPI_InitStruct->SPI_NSS = SPI_NSS_Soft;
+	SPI_InitStruct->SPI_BaudRatePrescaler = SPI_BaudRatePrescaler_256 ;
+	SPI_InitStruct->SPI_FirstBit = SPI_FirstBit_MSB;
+	SPI_InitStruct->SPI_CRCPolynomial = 7;
+	SPI_Init(SPI1, SPI_InitStruct);
+
+	//something here?
+
+	SPI_Cmd(SPI1, ENABLE);
+
+
+	while (1) {
+		trace_printf("hello\n");
+		//writeCmd(0x1);
+		changeAddr(0x00);
+		writeChar(0x48); //H
+		writeChar(0x45); //E
+		writeChar(0x4C); //L
+		writeChar(0x4C); //L
+		writeChar(0x4F); //O
+	}
+}
+
+void writeChar(int c) {
+	int high = (c & 0xF0) >> 4;
+	int low = c & 0x0F;
+	sendData(high);
+	sendData(low);
+}
+
+void writeCmd(int c) {
+	int high = (c & 0xF0) >> 4;
+	int low = c & 0x0F;
+	sendCommand(high);
+	sendCommand(low);
+}
+
+void changeAddr(int p) {
+	int high = (p & 0xF0) >> 4;
+	high |= 0x8;
+	int low = p & 0x0F;
+	sendCommand(high);
+	sendCommand(low);
+}
+
+void sendCommand(uint8_t d) {
+	writeData(d);
+	writeData(d | 0x80);
+	writeData(d);
+}
+
+void sendData(uint8_t d) {
+	writeData(d | 0x40);
+	writeData(d | 0x80 | 0x40);
+	writeData(d | 0x40);
+}
+
+
+void writeData(uint8_t data) {
+
+
+	/* reset LCK signal to 0 by forcing PD2 to 0 */
+	GPIOD->BSRR = GPIO_BSRR_BR_2;
+
+	/* Wait until SPI1 is ready */
+	while (SPI1->SR & SPI_SR_BSY);
+
+	SPI_SendData8(SPI1, data);
+
+	/* Wait until SPI1 is not busy */
+	while (SPI1->SR & SPI_SR_BSY);
+
+	/* Force LCK signal to 1 by forcing PD2 to 1 */
+	GPIOD->BSRR = GPIO_BSRR_BS_2;
+
+
+}
+
+
+
+
+void configurePD() {
+	/* Enable clock for GPIOD peripheral */
+	RCC->AHBENR |= RCC_AHBENR_GPIODEN;
+
+	/* Configure PD2 as output */
+	GPIOD->MODER |= GPIO_MODER_MODER2_0;
+
+	/* No pull-up/down for PD2 */
+	GPIOD->PUPDR &= ~(GPIO_PUPDR_PUPDR2);
+}
+
+
+void configurePB() {
+	/* Enable clock for GPIOB peripheral */
+	RCC->AHBENR |= RCC_AHBENR_GPIOBEN;
+
+	/* Configure PB2 as alternate function */
+	GPIOB->MODER |= GPIO_MODER_MODER2_1;
+
+	/* No pull-up/down for PB2 */
+	GPIOB->PUPDR &= ~(GPIO_PUPDR_PUPDR2);
+
+	/* Configure PB5 as alternate function */
+	GPIOB->MODER |= GPIO_MODER_MODER5_1;
+
+	/* No pull-up/down for PB5 */
+	GPIOB->PUPDR &= ~(GPIO_PUPDR_PUPDR5);
+
+}
 
 void configurePA() {
 	/* Enable clock for GPIOA peripheral */
