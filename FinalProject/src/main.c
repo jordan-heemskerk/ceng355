@@ -51,6 +51,7 @@ void configurePB();
 void configurePD();
 void configureSPI1();
 unsigned int pollADC();
+void configureLCD();
 void writeDAC(unsigned int);
 
 void writeChar(int);
@@ -75,6 +76,7 @@ int main(int argc, char* argv[]) {
 	configurePB();
 	configurePD();
 	configureSPI1();
+	configureLCD();
 
 	initADC();
 	initDAC();
@@ -124,6 +126,22 @@ void configureSPI1() {
 	SPI_Cmd(SPI1, ENABLE);
 
 
+
+}
+
+void configureLCD() {
+	//setup 4 bit mode?
+	writeCmd(0x33);
+	writeCmd(0x32);
+
+	// LCD options
+	writeCmd(0x28); //DL= 0 N=1 F=0
+	writeCmd(0x0C); //D = 1, C=0 B =0
+	writeCmd(0x06); // I/D=1 S=0
+
+	writeCmd(0x1); //clear display
+
+	/* Debugging hello
 	while (1) {
 		trace_printf("hello\n");
 		//writeCmd(0x1);
@@ -134,6 +152,8 @@ void configureSPI1() {
 		writeChar(0x4C); //L
 		writeChar(0x4F); //O
 	}
+	*/
+
 }
 
 void writeChar(int c) {
