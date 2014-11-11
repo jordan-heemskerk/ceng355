@@ -210,11 +210,11 @@ void configurePB() {
 	/* Enable clock for GPIOB peripheral */
 	RCC->AHBENR |= RCC_AHBENR_GPIOBEN;
 
-	/* Configure PB2 as alternate function */
-	GPIOB->MODER |= GPIO_MODER_MODER2_1;
+	/* Configure PB3 as alternate function */
+	GPIOB->MODER |= GPIO_MODER_MODER3_1;
 
-	/* No pull-up/down for PB2 */
-	GPIOB->PUPDR &= ~(GPIO_PUPDR_PUPDR2);
+	/* No pull-up/down for PB3 */
+	GPIOB->PUPDR &= ~(GPIO_PUPDR_PUPDR3);
 
 	/* Configure PB5 as alternate function */
 	GPIOB->MODER |= GPIO_MODER_MODER5_1;
