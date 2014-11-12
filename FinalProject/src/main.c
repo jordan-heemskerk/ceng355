@@ -60,13 +60,13 @@ void sendCommand(uint8_t);
 void sendData(uint8_t);
 void writeData(uint8_t);
 void writeCmd(int );
-
+void writeLCD();
 
 
 //for determining frequency with EXTI and TIM2
 int second_edge;
 
-
+int f, r;
 
 int main(int argc, char* argv[]) {
   // At this stage the system clock should have already been configured
@@ -89,14 +89,19 @@ int main(int argc, char* argv[]) {
 	while (1) {
 
 		unsigned int adc = pollADC();
-		trace_printf("ADC Value: %d\n", adc);
+		//trace_printf("ADC Value: %d\n", adc);
+
+		r = 5000 - (int)(adc * (5000.0/4095.0));
+
 		float out = (((float)adc) * ((DAC_MAX-DAC_MIN)/ADC_MAX)) + DAC_MIN;
-		trace_printf("DAC Value: %d\n\n", (int)out);
+		//trace_printf("DAC Value: %d\n\n", (int)out);
 		writeDAC(out);
 
 
 	   // Add your code here.
 	}
+
+
 }
 
 void configureSPI1() {
@@ -129,10 +134,36 @@ void configureSPI1() {
 
 }
 
+void writeLCD() {
+
+	int frequency = f;
+	changeAddr(0x0);
+	writeChar('F');
+	writeChar(':');
+	writeChar((frequency/100) + 48);
+	writeChar((frequency%100)/10 + 48);
+	writeChar('.');
+	writeChar((frequency%10) + 48);
+	writeChar('H');
+	writeChar('z');
+
+	int resistance = r;
+	changeAddr(0x40);
+	writeChar('R');
+	writeChar(':');
+	writeChar((resistance/1000) + 48);
+	writeChar((resistance%1000)/100 + 48);
+	writeChar((resistance%100)/10 + 48);
+	writeChar((resistance%10) + 48);
+	writeChar('O');
+	writeChar('h');
+
+}
+
 void configureLCD() {
-	//setup 4 bit mode?
-	writeCmd(0x33);
-	writeCmd(0x32);
+	//reconfigure and setup in 4 bit mode?
+	writeCmd(0x33); //special function set command
+	writeCmd(0x32); //special function set command and 4 bit mode
 
 	// LCD options
 	writeCmd(0x28); //DL= 0 N=1 F=0
@@ -140,20 +171,6 @@ void configureLCD() {
 	writeCmd(0x06); // I/D=1 S=0
 
 	writeCmd(0x1); //clear display
-
-	/* Debugging hello
-	while (1) {
-		trace_printf("hello\n");
-		//writeCmd(0x1);
-		changeAddr(0x00);
-		writeChar(0x48); //H
-		writeChar(0x45); //E
-		writeChar(0x4C); //L
-		writeChar(0x4C); //L
-		writeChar(0x4F); //O
-	}
-	*/
-
 }
 
 void writeChar(int c) {
@@ -341,27 +358,17 @@ void EXTI0_1_IRQHandler()
 		} else {
 			second_edge = 0;
 
+
+
 			TIM2->CR1  |= TIM_CR1_UDIS; //disable TIM2
 			int delta = TIM2->CNT;
 
 			//calculate frequency here
 			double period = ((double)(delta)/48000000.0);
 			double frequency = 1.0/period;
-			if (period < 0.00001) {
-				trace_printf("period: %d nsec\n", (uint)(period*1000000000));
-			} else if (period < 0.001) {
-				trace_printf("period: %d usec\n", (uint)(period*1000000));
-			} else {
-				trace_printf("period: %d msec\n", (uint)(period*1000));
-			}
 
-			if (frequency < 100.0) {
-				trace_printf("frequency: %d mHz\n\n",  (uint)(frequency*1000));
-			} else if (frequency < 1000000) {
-				trace_printf("frequency: %d Hz\n\n",  (uint)(frequency));
-			} else {
-				trace_printf("frequency: %d KHz\n\n",  (uint)(frequency/1000));
-			}
+			f = (int)(frequency*10);
+			writeLCD();
 
 
 
@@ -370,23 +377,8 @@ void EXTI0_1_IRQHandler()
 
 		}
 
-		EXTI->PR |= EXTI_PR_PR1;
-		//
-		// 1. If this is the first edge:
-		//	- Clear count register (TIM2->CNT).
-		//	- Start timer (TIM2->CR1).
-		//    Else (this is the second edge):
-		//	- Stop timer (TIM2->CR1).
-		//	- Read out count register (TIM2->CNT).
-		//	- Calculate signal period and frequency.
-		//	- Print calculated values to the console.
-		//	  NOTE: Function trace_printf does not work
-		//	  with floating-point numbers: you must use
-		//	  "unsigned int" type to print your signal
-		//	  period and frequency.
-		//
-		// 2. Clear EXTI1 interrupt pending flag (EXTI->PR).
-		//
+		EXTI->PR |= EXTI_PR_PR1; //clear EXTI interrupt pending flag
+
 	}
 }
 
@@ -467,10 +459,14 @@ void initADC() {
 
 unsigned int pollADC() {
 
-	ADC1->CR |= ADC_CR_ADSTART;
-	while ((ADC1->ISR & ADC_ISR_EOC) == 0);
-	ADC1->ISR &= ~(ADC_ISR_EOC);
-	unsigned int val = ADC1->DR;
+	ADC1->CR |= ADC_CR_ADSTART; //start conversion
+
+	while ((ADC1->ISR & ADC_ISR_EOC) == 0); //wait for conversion
+
+	ADC1->ISR &= ~(ADC_ISR_EOC); //clear done conversion flag
+
+	unsigned int val = ADC1->DR; //get value
+
 	return val;
 
 }
