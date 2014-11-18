@@ -352,7 +352,7 @@ void EXTI0_1_IRQHandler()
 			double period = ((double)(delta)/48000000.0);
 			double frequency = 1.0/period;
 
-			f = (int)(frequency*10);
+			f = (int)(frequency*100);
 			writeLCD();
 		}
 
@@ -386,9 +386,9 @@ void writeLCD() {
 	changeAddr(0x0);
 	writeChar('F');
 	writeChar(':');
-	writeChar((frequency/100) + 48);
+	writeChar((frequency/1000) + 48);
+	writeChar((frequency%1000)/100 + 48);
 	writeChar((frequency%100)/10 + 48);
-	writeChar('.');
 	writeChar((frequency%10) + 48);
 	writeChar('H');
 	writeChar('z');
