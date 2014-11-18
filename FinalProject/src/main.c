@@ -39,6 +39,7 @@
 #define DAC_MAX 3000.0
 #define DAC_MIN 1000.0
 #define ADC_MAX 4095.0
+#define RES_CHANGE 5
 
 void configurePA();
 void configurePB();
@@ -67,7 +68,7 @@ void writeDAC(unsigned int);
 //for determining frequency with EXTI and TIM2
 int second_edge;
 
-int f, r, last_r;
+int f, r, last_r, first;
 
 /*
  * Configures IO, initializes registers, and runs main loop.
@@ -85,10 +86,12 @@ int main(int argc, char* argv[]) {
 	initADC();
 	initDAC();
 	initTIM2();
+
 	initEXTI();
 
 	second_edge = 0;
 	last_r = 0;
+	first = 1;
 
     // Infinite loop
 	while (1) {
@@ -97,7 +100,7 @@ int main(int argc, char* argv[]) {
 		//trace_printf("ADC Value: %d\n", adc);
 
 		/* Calculate resistance */
-		r = 5000 - (int)(adc * (5000.0/4095.0));
+		r = (int)(adc * (5000.0/4095.0));
 
 		float out = (((float)adc) * ((DAC_MAX-DAC_MIN)/ADC_MAX)) + DAC_MIN;
 		//trace_printf("DAC Value: %d\n\n", (int)out);
@@ -396,13 +399,17 @@ void writeLCD() {
 	/* Resistance is very touchy, so only display changes over 5 Ohms */
 	int resistance;
 	int r_diff = r - last_r;
+	if (first) {
+		last_r = r;
+		first = 0;
+	}
 
-	if (r_diff > 5 || r_diff < -5) {
+	if (r_diff < RES_CHANGE && r_diff > -RES_CHANGE) {
 		resistance = last_r;
 	} else {
 		resistance = r;
+		last_r = resistance;
 	}
-	last_r = r;
 
 	changeAddr(0x40);
 	writeChar('R');
