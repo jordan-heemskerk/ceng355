@@ -396,12 +396,14 @@ void writeLCD() {
 	/* Resistance is very touchy, so only display changes over 5 Ohms */
 	int resistance;
 	int r_diff = r - last_r;
+
 	if (r_diff > 5 || r_diff < -5) {
 		resistance = last_r;
 	} else {
 		resistance = r;
-		last_r = r;
 	}
+	last_r = r;
+
 	changeAddr(0x40);
 	writeChar('R');
 	writeChar(':');
